@@ -1,0 +1,7 @@
+backend/node_modules/
+frontend/node_modules/
+.env
+*.log
+.DS_Store
+frontend/src/old_files
+frontend/src/api/old_files

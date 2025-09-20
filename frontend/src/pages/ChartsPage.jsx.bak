@@ -1,0 +1,183 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { fetchFuelData, fetchCars } from '../api/api';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import '../ChartsPage.css';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+
+export default function ChartsPage() {
+  const [fuelData, setFuelData] = useState([]);
+  const [cars, setCars] = useState([]);
+  const [selectedCar, setSelectedCar] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const chartRef = useRef(null);
+  const tooltipRef = useRef(null);
+
+  useEffect(() => {
+    tooltipRef.current = document.createElement('div');
+    tooltipRef.current.id = 'custom-tooltip';
+    Object.assign(tooltipRef.current.style, {
+      position: 'absolute',
+      background: 'rgba(0,0,0,0.8)',
+      color: '#fff',
+      padding: '6px 8px',
+      borderRadius: '4px',
+      pointerEvents: 'none',
+      opacity: 0,
+      transition: 'opacity 0.2s',
+      fontSize: '12px',
+    });
+    document.body.appendChild(tooltipRef.current);
+
+    return () => {
+      document.body.removeChild(tooltipRef.current);
+    };
+  }, []);
+
+  const filteredFuelData = useMemo(() => {
+    return selectedCar
+      ? fuelData.filter((item) => item.rekisteritunnus === selectedCar)
+      : fuelData;
+  }, [fuelData, selectedCar]);
+
+  const sortedFuelData = useMemo(() => {
+    return [...filteredFuelData].sort((a, b) => new Date(a.tankkauspva) - new Date(b.tankkauspva));
+  }, [filteredFuelData]);
+
+  const chartData = useMemo(() => ({
+    labels: sortedFuelData.map((item) => item.tankkauspva),
+    datasets: [
+      {
+        label: 'Kulutus (L/100km)',
+        data: sortedFuelData.map((item) => item.kulutus),
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1,
+        pointRadius: 1,
+        fill: false,
+      },
+      {
+        label: 'Hinta/litra (€)',
+        data: sortedFuelData.map((item) => item.litrahinta),
+        borderColor: 'rgb(255, 99, 132)',
+        tension: 0.1,
+        pointRadius: 1,
+        fill: false,
+      },
+    ],
+  }), [sortedFuelData]);
+
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'nearest',
+      intersect: false,
+    },
+    plugins: {
+      tooltip: {
+        enabled: false,
+        external: (context) => {
+          const tooltip = tooltipRef.current;
+          const chart = context.chart;
+          const tooltipModel = context.tooltip;
+
+          if (!tooltipModel || !tooltipModel.opacity) {
+            tooltip.style.opacity = 0;
+            return;
+          }
+
+          const { dataPoints } = tooltipModel;
+          if (dataPoints.length > 0) {
+            const point = dataPoints[0];
+            const label = point.label;
+            const value = point.formattedValue;
+            const datasetLabel = point.dataset.label;
+
+            tooltip.innerHTML = `<strong>${label}</strong><br>${datasetLabel}: ${value}`;
+
+            const canvasRect = chart.canvas.getBoundingClientRect();
+            tooltip.style.left = canvasRect.left + window.pageXOffset + tooltipModel.caretX + 'px';
+            tooltip.style.top = canvasRect.top + window.pageYOffset + tooltipModel.caretY + 'px';
+            tooltip.style.opacity = 1;
+          }
+        },
+      },
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Pvm',
+        },
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Arvo',
+        },
+      },
+    },
+  }), []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [fuel, cars] = await Promise.all([fetchFuelData(), fetchCars()]);
+        setFuelData(fuel);
+        setCars(cars);
+      } catch (err) {
+        setError('Tietojen lataus epäonnistui');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const handleCarChange = (event) => {
+    setSelectedCar(event.target.value);
+  };
+
+  if (loading) return <div>Ladataan...</div>;
+  if (error) return <div>{error}</div>;
+
+  return (
+    <div>
+      <h2>Polttoaineen kulutus ja hintakaaviot</h2>
+      <FormControl style={{ marginBottom: '20px', width: '200px' }}>
+        <InputLabel id="car-select-label">Valitse auto</InputLabel>
+        <Select
+          labelId="car-select-label"
+          value={selectedCar}
+          onChange={handleCarChange}
+        >
+          <MenuItem value="">Kaikki autot</MenuItem>
+          {cars.map((car) => (
+            <MenuItem key={car.rekisteritunnus} value={car.rekisteritunnus}>
+              {car.rekisteritunnus}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <div style={{ height: '400px' }}>
+        <Line ref={chartRef} data={chartData} options={chartOptions} />
+      </div>
+    </div>
+  );
+}
+

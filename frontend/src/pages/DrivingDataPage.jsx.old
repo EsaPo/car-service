@@ -1,0 +1,251 @@
+// CarsPage.jsx
+import React, { useState, useEffect } from 'react';
+import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
+import { fetchDrivingData, addDrivingData, updateDrivingData, deleteDrivingData } from '../api/api';
+import { format, parseISO } from 'date-fns';
+import {
+    Button,
+    TextField,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+} from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+
+const formatDateForInput = (dateString) => {
+    if (dateString) {
+        try {
+            return format(parseISO(dateString), 'yyyy-MM-dd');
+        } catch (error) {
+            console.error('Error parsing date for input:', error, dateString);
+            return dateString; // Return original if parsing fails
+        }
+    }
+    return '';
+};
+
+const formatDateForBackend = (dateString) => {
+    if (dateString) {
+        try {
+            return format(new Date(dateString), 'yyyy-MM-dd');
+        } catch (error) {
+            console.error('Error formatting date for backend:', error, dateString);
+            return dateString; // Return original if formatting fails
+        }
+    }
+    return null; // Or '', depending on your backend preference
+};
+
+export default function DrivingLogPage() {
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [open, setOpen] = useState(false);
+    const [newDrivingData, setNewDrivingData] = useState({
+        rekisteritunnus: '',
+        paivamaara: format(new Date(), 'yyyy-MM-dd'),
+        lahtoaika: '',
+        lahtokm: '',
+	reitti: '',
+        paluuaika: '',
+        paluukm: '',
+        muuta: '',
+    });
+    const [editOpen, setEditOpen] = useState(false);
+    const [editDrivingData, setEditDrivingData] = useState(null);
+
+    const columns = [
+        { field: 'rekisteritunnus', headerName: 'Rekisteritunnus', width: 90 },
+        { field: 'paivamaara', headerName: 'Pvm', width: 110 },
+        { field: 'lahtoaika', headerName: 'Lähtöaika', width: 80 },
+        { field: 'lahtokm', headerName: 'Lähtö km', width: 80 },
+        { field: 'paluuaika', headerName: 'Paluuaika', width: 80 },
+        { field: 'paluukm', headerName: 'Paluu km', width: 80 },
+	{ field: 'reitti', headerName: 'Reitti', width: 200 },
+        { field: 'muuta', headerName: 'Muuta', width: 190 },
+        {
+            field: 'actions',
+            type: 'actions',
+            width: 120,
+            getActions: (params) => [
+                <GridActionsCellItem icon={<EditIcon />} label="Muokkaa" onClick={() => handleEdit(params.row)} />,
+                <GridActionsCellItem
+                    icon={<DeleteIcon />}
+                    label="Poista"
+                    onClick={() => handleDelete(params.row.id)}
+                />,
+            ],
+        },
+    ];
+
+    useEffect(() => {
+        loadDrivingData();
+    }, []);
+
+    const loadDrivingData = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchDrivingData();
+            console.log('Data from fetchDrivingData:', data);
+            setRows(data.map(row => ({
+                ...row,
+                paivamaara: formatDateForInput(row.paivamaara),
+            })));
+        } catch (err) {
+            console.error('Error loading driving data:', err);
+            setError('Failed to load driving data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setNewDrivingData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        const formattedNewDrivingData = {
+            ...newDrivingData,
+            paivamaara: formatDateForBackend(newDrivingData.paivamaara),
+        };
+        console.log('Data sent for adding:', formattedNewDrivingData);
+        try {
+            await addDrivingData(formattedNewDrivingData);
+            loadDrivingData();
+            setNewDrivingData({
+                rekisteritunnus: '',
+                paivamaara: format(new Date(), 'yyyy-MM-dd'),
+                lahtoaika: '',
+                lahtokm: '',
+                paluuaika: '',
+                paluukm: '',
+		reitti: '',
+                muuta: '',
+            });
+            setOpen(false);
+        } catch (err) {
+            console.error('Error adding driving data:', err);
+            setError('Failed to add driving data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (rekisteritunnus) => {
+        setLoading(true);
+        try {
+            await deleteDrivingData(rekisteritunnus);
+            loadDrivingData();
+        } catch (err) {
+            console.error('Error deleting driving data:', err);
+            setError('Failed to delete driving data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEdit = (row) => {
+        console.log('Original row data for edit:', row);
+        console.log('Original paivamaara for edit:', row.paivamaara);
+        const formattedPaivamaara = formatDateForInput(row.paivamaara);
+        console.log('Formatted paivamaara for input:', formattedPaivamaara);
+        setEditDrivingData({
+            ...row,
+            paivamaara: formattedPaivamaara,
+        });
+        setEditOpen(true);
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        console.log('editDrivingData state before update:', editDrivingData);
+        const formattedEditDrivingData = {
+            ...editDrivingData,
+            paivamaara: formatDateForBackend(editDrivingData.paivamaara),
+        };
+        console.log('Data sent for updating:', formattedEditDrivingData);
+        try {
+            await updateDrivingData(formattedEditDrivingData.rekisteritunnus, formattedEditDrivingData);
+            loadDrivingData();
+            setEditOpen(false);
+        } catch (err) {
+            console.error('Error updating driving data:', err);
+            setError('Failed to update driving data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEditInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditDrivingData((prev) => ({ ...prev, [name]: value }));
+        console.log('editDrivingData state after input change:', { ...editDrivingData, [name]: value });
+    };
+
+    if (loading) return <div>Ladataan...</div>;
+    if (error) return <div style={{ color: 'red' }}>{error}</div>;
+
+    return (
+        <div style={{ height: 600, width: '100%' }}>
+            <h2>Ajopäiväkirja</h2>
+            <Button variant="contained" onClick={() => setOpen(true)} style={{ marginBottom: 16 }}>
+                Lisää uusi ajomerkintä
+            </Button>
+            <DataGrid
+                rows={rows}
+                columns={columns}
+                loading={loading}
+                pageSize={10}
+                rowsPerPageOptions={[10, 25, 50]}
+                disableSelectionOnClick
+                autoHeight
+            />
+
+            <Dialog open={open} onClose={() => setOpen(false)}>
+                <DialogTitle>Lisää uusi ajomerkintä</DialogTitle>
+                <form onSubmit={handleSubmit}>
+                    <DialogContent>
+                        <TextField fullWidth label="Rekisteritunnus" name="rekisteritunnus" value={newDrivingData.rekisteritunnus} onChange={handleInputChange} margin="dense" required />
+                        <TextField fullWidth label="Pvm" type="date" name="paivamaara" value={newDrivingData.paivamaara} onChange={handleInputChange} margin="dense" />
+                        <TextField fullWidth label="Lähtöaika" name="lahtoaika" value={newDrivingData.lahtoaika} onChange={handleInputChange} margin="dense" required />
+                        <TextField fullWidth label="Lähtö km" type="number" name="lahtokm" value={newDrivingData.lahtokm} onChange={handleInputChange} margin="dense" required />
+			<TextField fullWidth label="Reitti" name="reitti" value={newDrivingData.reitti} onChange={handleInputChange} margin="dense" multiline rows={2} />
+                        <TextField fullWidth label="Paluuaika" name="paluuaika" value={newDrivingData.paluuaika} onChange={handleInputChange} margin="dense" />
+                        <TextField fullWidth label="Paluu km" type="number" name="paluukm" value={newDrivingData.paluukm} onChange={handleInputChange} margin="dense" />
+                        <TextField fullWidth label="Muuta" name="muuta" value={newDrivingData.muuta} onChange={handleInputChange} margin="dense" multiline rows={2} />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpen(false)}>Peruuta</Button>
+                        <Button type="submit" disabled={loading}>{loading ? 'Lisää...' : 'Lisää'}</Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+
+            <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
+                <DialogTitle>Muokkaa ajoneuvoa</DialogTitle>
+                <form onSubmit={handleUpdate}>
+                    <DialogContent>
+                        <TextField fullWidth label="Rekisteritunnus" name="rekisteritunnus" value={newDrivingData.rekisteritunnus} onChange={handleInputChange} margin="dense" required />
+                        <TextField fullWidth label="Pvm" type="date" name="paivamaara" value={newDrivingData.paivamaara} onChange={handleInputChange} margin="dense" />
+                        <TextField fullWidth label="Lähtöaika" name="lahtoaika" value={newDrivingData.lahtoaika} onChange={handleInputChange} margin="dense" required />
+                        <TextField fullWidth label="Lähtö km" type="number" name="lahtokm" value={newDrivingData.lahtokm} onChange={handleInputChange} margin="dense" required />
+                        <TextField fullWidth label="Reitti" name="reitti" value={newDrivingData.reitti} onChange={handleInputChange} margin="dense" multiline rows={2} />
+                        <TextField fullWidth label="Paluuaika" name="paluuaika" value={newDrivingData.paluuaika} onChange={handleInputChange} margin="dense" />
+                        <TextField fullWidth label="Paluu km" type="number" name="paluukm" value={newDrivingData.paluukm} onChange={handleInputChange} margin="dense" />
+                        <TextField fullWidth label="Muuta" name="muuta" value={newDrivingData.muuta} onChange={handleInputChange} margin="dense" multiline rows={2} />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setEditOpen(false)}>Peruuta</Button>
+                        <Button type="submit" disabled={loading}>{loading ? 'Päivitetään...' : 'Päivitä'}</Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+        </div>
+    );
+}

@@ -1,0 +1,19 @@
+.chart-container {
+  width: 100%; /* Take full width of parent */
+  max-width: 100%; /* Ensure it doesn't exceed parent width */
+  overflow-x: auto; /* Enable horizontal scrolling if needed */
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
+}
+
+.chart-container canvas {
+  width: 800px !important; /* Set a fixed width for the chart */
+  height: 400px !important; /* Set a fixed height for the chart */
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .chart-container canvas {
+    width: 600px !important; /* Adjust width for smaller screens */
+    height: 300px !important; /* Adjust height for smaller screens */
+  }
+}
