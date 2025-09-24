@@ -1,4 +1,4 @@
-### Car service app
+### Car service app / Auton huolto- ja kustannuseuranta
 
 This is my car service app where you can collect data from your car and drivings, fuel consumptions and services. First you have to add your car to app before you can start monitor your car cost (fuel, maintenance, driving diary).
 
