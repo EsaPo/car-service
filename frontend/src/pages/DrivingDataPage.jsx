@@ -14,6 +14,7 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -37,16 +38,27 @@ export default function DrivingDataPage() {
     });
     const [editOpen, setEditOpen] = useState(false);
     const [editDrivingData, setEditDrivingData] = useState(null);
-    const [servicesData, setDrivingDataData] = useState([]); // State for CSV export
+    const [drivingDataData, setDrivingDataData] = useState([]); // Fixed variable name
 
     const columns = [
         { field: 'rekisteritunnus', headerName: 'Rekisteritunnus', width: 90 },
         { field: 'paivamaara', headerName: 'Päivämäärä', width: 110 },
         { field: 'lahtoaika', headerName: 'Lähtöaika', width: 75 },
         { field: 'paluuaika', headerName: 'Paluuaika', width: 75 },
-        { field: 'lahtokm', headerName: 'Lähtö km', width: 80 },
-        { field: 'paluukm', headerName: 'Paluu km', width: 80 },
-        { field: 'ajomaara', headerName: 'Ajomäärä km', width: 80, type: 'number', valueFormatter: (params) => params.value?.toFixed(1) },
+        { field: 'lahtokm', headerName: 'Lähtö km', width: 80, type: 'number' },
+        { field: 'paluukm', headerName: 'Paluu km', width: 80, type: 'number' },
+        {
+            field: 'ajomaara',
+            headerName: 'Ajomäärä km',
+            width: 80,
+            type: 'number',
+            renderCell: (params) => {
+                if (params.value === null || params.value === undefined) {
+                    return '';
+                }
+                return params.value.toFixed(1);
+            }
+        },
         { field: 'reitti', headerName: 'Ajoreitti', width: 330 },
         { field: 'muuta', headerName: 'Muuta', width: 150 },
         {
@@ -67,13 +79,13 @@ export default function DrivingDataPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [servicesData, carsData] = await Promise.all([fetchDrivingData(), fetchCars()]);
-            setRows(servicesData);
+            const [drivingData, carsData] = await Promise.all([fetchDrivingData(), fetchCars()]);
+            setRows(drivingData);
             setCars(carsData);
-            setDrivingDataData(servicesData); // Set the services data for export
+            setDrivingDataData(drivingData); // Set the driving data for export
         } catch (err) {
-            console.error('Error loading service data:', err);
-            setError('Failed to load service data');
+            console.error('Error loading driving data:', err);
+            setError('Failed to load driving data');
         } finally {
             setLoading(false);
         }
@@ -86,7 +98,24 @@ export default function DrivingDataPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Validate required fields
+        if (!newDrivingData.rekisteritunnus || !newDrivingData.paivamaara) {
+            setError('Rekisteritunnus ja päivämäärä ovat pakollisia kenttiä');
+            return;
+        }
+
+        // Validate that at least some data is provided
+        if (!newDrivingData.lahtoaika && !newDrivingData.lahtokm &&
+            !newDrivingData.paluuaika && !newDrivingData.paluukm &&
+            !newDrivingData.reitti && !newDrivingData.muuta) {
+            setError('Vähintään yksi kenttä (lähtöaika, lähtö km, paluuaika, paluu km, reitti tai muuta) on täytettävä');
+            return;
+        }
+
         setLoading(true);
+        setError(null); // Clear previous errors
+
         try {
             await addDrivingData(newDrivingData);
             loadData();
@@ -97,27 +126,30 @@ export default function DrivingDataPage() {
                 lahtokm: '',
                 paluuaika: '',
                 paluukm: '',
-		ajomaara: '', // lisätty
                 reitti: '',
                 muuta: '',
             });
             setOpen(false);
         } catch (err) {
-            console.error('Error adding service:', err);
-            setError('Failed to add service');
+            console.error('Error adding driving data:', err);
+            setError(err.response?.data?.error || 'Failed to add driving data');
         } finally {
             setLoading(false);
         }
     };
 
     const handleDelete = async (id) => {
+        if (!window.confirm('Haluatko varmasti poistaa tämän ajomerkinnän?')) {
+            return;
+        }
+
         setLoading(true);
         try {
             await deleteDrivingData(id);
             loadData();
         } catch (err) {
-            console.error('Error deleting service:', err);
-            setError('Failed to delete service');
+            console.error('Error deleting driving data:', err);
+            setError('Failed to delete driving data');
         } finally {
             setLoading(false);
         }
@@ -130,14 +162,23 @@ export default function DrivingDataPage() {
 
     const handleUpdate = async (e) => {
         e.preventDefault();
+
+        // Validate required fields
+        if (!editDrivingData.rekisteritunnus || !editDrivingData.paivamaara) {
+            setError('Rekisteritunnus ja päivämäärä ovat pakollisia kenttiä');
+            return;
+        }
+
         setLoading(true);
+        setError(null); // Clear previous errors
+
         try {
             await updateDrivingData(editDrivingData.id, editDrivingData);
             loadData();
             setEditOpen(false);
         } catch (err) {
-            console.error('Error updating service:', err);
-            setError('Failed to update service');
+            console.error('Error updating driving data:', err);
+            setError(err.response?.data?.error || 'Failed to update driving data');
         } finally {
             setLoading(false);
         }
@@ -149,20 +190,36 @@ export default function DrivingDataPage() {
     };
 
     const handleExportClick = () => {
-        const csvData = generateCSVData(servicesData);
-        downloadCSV(csvData, 'all_service_data.csv');
+        const csvData = generateCSVData(drivingDataData);
+        downloadCSV(csvData, 'all_driving_data.csv');
     };
 
-    if (loading) return <div>Ladataan...</div>;
-    if (error) return <div style={{ color: 'red' }}>{error}</div>;
+    const handleCloseDialog = () => {
+        setOpen(false);
+        setError(null); // Clear error when closing
+    };
 
+    const handleCloseEditDialog = () => {
+        setEditOpen(false);
+        setError(null); // Clear error when closing
+    };
+
+    if (loading && rows.length === 0) return <div>Ladataan...</div>;
 
     return (
         <div style={{ height: 600, width: '100%' }}>
             <h2>Ajopäiväkirja</h2>
+
+            {error && (
+                <Alert severity="error" onClose={() => setError(null)} style={{ marginBottom: 16 }}>
+                    {error}
+                </Alert>
+            )}
+
             <Button variant="contained" onClick={() => setOpen(true)} style={{ marginBottom: 16 }}>
-                Lisaa uusi ajomerkintä
+                Lisää uusi ajomerkintä
             </Button>
+
             <DataGrid
                 rows={rows}
                 columns={columns}
@@ -172,37 +229,50 @@ export default function DrivingDataPage() {
                 disableSelectionOnClick
                 autoHeight
             />
+
             <Button variant="contained" onClick={handleExportClick} style={{ marginTop: '20px' }}>
                 Vie ajotiedot CSV tiedostoon
             </Button>
 
-            <Dialog open={open} onClose={() => setOpen(false)}>
-                <DialogTitle>Lisaa uusi ajomerkintä</DialogTitle>
+            {/* Add Driving Data Dialog */}
+            <Dialog open={open} onClose={handleCloseDialog}>
+                <DialogTitle>Lisää uusi ajomerkintä</DialogTitle>
                 <DialogContent>
-                    <FormControl fullWidth margin="dense">
-                        <InputLabel id="rekisteritunnus-label">Rekisteritunnus</InputLabel>
+                    {error && (
+                        <Alert severity="error" style={{ marginBottom: 16 }}>
+                            {error}
+                        </Alert>
+                    )}
+
+                    <FormControl fullWidth margin="dense" required>
+                        <InputLabel id="rekisteritunnus-label">Rekisteritunnus *</InputLabel>
                         <Select
                             labelId="rekisteritunnus-label"
                             name="rekisteritunnus"
                             value={newDrivingData.rekisteritunnus}
-                            label="Rekisteritunnus"
+                            label="Rekisteritunnus *"
                             onChange={handleInputChange}
                         >
                             {cars.map((car) => (
-                                <MenuItem key={car.rekisteritunnus} value={car.rekisteritunnus}>{car.rekisteritunnus}</MenuItem>
+                                <MenuItem key={car.rekisteritunnus} value={car.rekisteritunnus}>
+                                    {car.rekisteritunnus}
+                                </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
+
                     <TextField
                         margin="dense"
                         name="paivamaara"
-                        label="Päivämäärä"
+                        label="Päivämäärä *"
                         type="date"
                         fullWidth
+                        required
                         value={newDrivingData.paivamaara}
                         onChange={handleInputChange}
                         InputLabelProps={{ shrink: true }}
                     />
+
                     <TextField
                         margin="dense"
                         name="lahtoaika"
@@ -211,6 +281,7 @@ export default function DrivingDataPage() {
                         value={newDrivingData.lahtoaika}
                         onChange={handleInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="lahtokm"
@@ -220,6 +291,7 @@ export default function DrivingDataPage() {
                         value={newDrivingData.lahtokm}
                         onChange={handleInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="reitti"
@@ -230,6 +302,7 @@ export default function DrivingDataPage() {
                         value={newDrivingData.reitti}
                         onChange={handleInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="paluuaika"
@@ -238,6 +311,7 @@ export default function DrivingDataPage() {
                         value={newDrivingData.paluuaika}
                         onChange={handleInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="paluukm"
@@ -247,6 +321,7 @@ export default function DrivingDataPage() {
                         value={newDrivingData.paluukm}
                         onChange={handleInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="muuta"
@@ -259,36 +334,46 @@ export default function DrivingDataPage() {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpen(false)}>Peruuta</Button>
+                    <Button onClick={handleCloseDialog}>Peruuta</Button>
                     <Button onClick={handleSubmit} color="primary">
-                        Lisaa
+                        Lisää
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Edit DrivingData Dialog */}
-            <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
-                <DialogTitle>Muokkaa huoltoa</DialogTitle>
+            {/* Edit Driving Data Dialog */}
+            <Dialog open={editOpen} onClose={handleCloseEditDialog}>
+                <DialogTitle>Muokkaa ajomerkintää</DialogTitle>
                 <DialogContent>
+                    {error && (
+                        <Alert severity="error" style={{ marginBottom: 16 }}>
+                            {error}
+                        </Alert>
+                    )}
+
                     <TextField
                         margin="dense"
                         name="rekisteritunnus"
-                        label="Rekisteritunnus"
+                        label="Rekisteritunnus *"
                         fullWidth
+                        required
                         value={editDrivingData?.rekisteritunnus || ''}
                         onChange={handleEditInputChange}
                         disabled
                     />
+
                     <TextField
                         margin="dense"
                         name="paivamaara"
-                        label="Paivamaara"
+                        label="Päivämäärä *"
                         type="date"
                         fullWidth
+                        required
                         value={editDrivingData?.paivamaara || format(new Date(), 'yyyy-MM-dd')}
                         onChange={handleEditInputChange}
                         InputLabelProps={{ shrink: true }}
                     />
+
                     <TextField
                         margin="dense"
                         name="lahtoaika"
@@ -297,6 +382,7 @@ export default function DrivingDataPage() {
                         value={editDrivingData?.lahtoaika || ''}
                         onChange={handleEditInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="lahtokm"
@@ -306,14 +392,18 @@ export default function DrivingDataPage() {
                         value={editDrivingData?.lahtokm || ''}
                         onChange={handleEditInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="reitti"
                         label="Reitti"
                         fullWidth
+                        multiline
+                        rows={2}
                         value={editDrivingData?.reitti || ''}
                         onChange={handleEditInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="paluuaika"
@@ -322,6 +412,7 @@ export default function DrivingDataPage() {
                         value={editDrivingData?.paluuaika || ''}
                         onChange={handleEditInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="paluukm"
@@ -331,6 +422,7 @@ export default function DrivingDataPage() {
                         value={editDrivingData?.paluukm || ''}
                         onChange={handleEditInputChange}
                     />
+
                     <TextField
                         margin="dense"
                         name="muuta"
@@ -343,7 +435,7 @@ export default function DrivingDataPage() {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setEditOpen(false)}>Peruuta</Button>
+                    <Button onClick={handleCloseEditDialog}>Peruuta</Button>
                     <Button onClick={handleUpdate} color="primary">
                         Tallenna
                     </Button>
@@ -352,4 +444,5 @@ export default function DrivingDataPage() {
         </div>
     );
 }
+
 

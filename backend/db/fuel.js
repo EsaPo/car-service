@@ -3,9 +3,6 @@ const router = express.Router();
 const db = require('./dbconfig');
 const cors = require('cors');
 
-// Enable CORS for all routes
-//router.use(cors());
-
 // Hae kaikki tankkaukset
 router.get('/', (req, res) => {
     const query = `
@@ -18,9 +15,7 @@ router.get('/', (req, res) => {
             kilometrit,
             huoltoasemaketju,
             huoltoasema,
-            muuta,
-            (tankkausmaara * 1.0 / kilometrit * 100) AS kulutus,
-            (tankkauskustannus * 1.0 / tankkausmaara) AS litrahinta
+            muuta
         FROM fuel
         ORDER BY tankkauspva DESC;
     `;
@@ -33,51 +28,22 @@ router.get('/', (req, res) => {
 
         const formattedRows = rows.map(row => ({
             ...row,
-            kulutus: row.kilometrit ? parseFloat((row.tankkausmaara / row.kilometrit * 100).toFixed(1)) : null,
-            litrahinta: row.tankkausmaara ? parseFloat((row.tankkauskustannus / row.tankkausmaara).toFixed(3)) : null,
+            kulutus: (row.kilometrit && row.tankkausmaara) ? parseFloat((row.tankkausmaara / row.kilometrit * 100).toFixed(1)) : null,
+            litrahinta: (row.tankkausmaara && row.tankkauskustannus) ? parseFloat((row.tankkauskustannus / row.tankkausmaara).toFixed(3)) : null,
         }));
 
         res.json(formattedRows);
     });
 });
 
-/*router.get('/', (req, res) => {
-    const query = `
-        SELECT
-            id,
-            rekisteritunnus,
-            tankkauspva,
-            tankkausmaara,
-            tankkauskustannus,
-            kilometrit,
-            huoltoasemaketju,
-            huoltoasema,
-            muuta,
-            (tankkausmaara * 1.0 / kilometrit * 100) AS kulutus,
-            (tankkauskustannus * 1.0 / tankkausmaara) AS litrahinta
-        FROM fuel
-        ORDER BY tankkauspva DESC;
-    `;
-
-    db.all(query, [], (err, rows) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ error: "Failed to fetch data" });
-        }
-
-        const formattedRows = rows.map(row => ({
-            ...row,
-            kulutus: row.kulutus !== null && row.kulutus !== undefined ? parseFloat(parseFloat(row.kulutus).toFixed(1)) : null,
-            litrahinta: row.litrahinta !== null && row.litrahinta !== undefined ? parseFloat(parseFloat(row.litrahinta).toFixed(3)) : null,
-        }));
-
-        res.json(formattedRows);
-    });
-});*/
-
 // Lisää tankkauksia
 router.post('/', (req, res) => {
     const { rekisteritunnus, tankkauspva, tankkausmaara, tankkauskustannus, kilometrit, huoltoasemaketju, huoltoasema, muuta } = req.body;
+
+    // Validate required fields
+    if (!rekisteritunnus || !tankkauspva || !tankkausmaara || !tankkauskustannus) {
+        return res.status(400).json({ error: "Rekisteritunnus, tankkauspäivä, tankkaausmäärä ja kustannus ovat pakollisia kenttiä" });
+    }
 
     // Tarkista, onko rekisteritunnus olemassa car-taulussa
     db.get('SELECT rekisteritunnus FROM car WHERE rekisteritunnus = ?', [rekisteritunnus], (err, row) => {
@@ -90,13 +56,22 @@ router.post('/', (req, res) => {
             return res.status(400).json({ error: "Rekisteritunnus not found in car table" });
         }
 
-        // Lisää polttoainetiedot, koska rekisteritunnus on olemassa
+        // Lisää polttoainetiedot
         const query = `
             INSERT INTO fuel (rekisteritunnus, tankkauspva, tankkausmaara, tankkauskustannus, kilometrit, huoltoasemaketju, huoltoasema, muuta)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        db.run(query, [rekisteritunnus, tankkauspva, tankkausmaara, tankkauskustannus, kilometrit, huoltoasemaketju, huoltoasema, muuta], function(insertErr) {
+        db.run(query, [
+            rekisteritunnus, 
+            tankkauspva, 
+            tankkausmaara, 
+            tankkauskustannus, 
+            kilometrit || null, 
+            huoltoasemaketju || null, 
+            huoltoasema || null, 
+            muuta || null
+        ], function(insertErr) {
             if (insertErr) {
                 console.error(insertErr);
                 return res.status(500).json({ error: "Failed to add data" });
@@ -115,7 +90,7 @@ router.post('/', (req, res) => {
 // Poista tankkaustietoja
 router.delete('/:id', (req, res) => {
     const id = req.params.id;
-    console.log("Received ID for deletion:", id); // Debugging
+    console.log("Received ID for deletion:", id);
 
     if (!id) {
         return res.status(400).json({ error: "ID is required" });
@@ -146,10 +121,11 @@ router.put('/:id', (req, res) => {
     const { rekisteritunnus, tankkauspva, tankkausmaara, tankkauskustannus, kilometrit, huoltoasemaketju, huoltoasema, muuta } = req.body;
     const id = req.params.id;
 
-    console.log("Updating ID:", id, "with data:", req.body); // Debugging
+    console.log("Updating ID:", id, "with data:", req.body);
 
-    if (!id || !rekisteritunnus || !tankkauspva || !tankkausmaara || !tankkauskustannus || !kilometrit || !huoltoasemaketju || !huoltoasema) {
-        return res.status(400).json({ error: "Missing required fields" });
+    // Validate required fields
+    if (!rekisteritunnus || !tankkauspva || !tankkausmaara || !tankkauskustannus) {
+        return res.status(400).json({ error: "Rekisteritunnus, tankkauspäivä, tankkaausmäärä ja kustannus ovat pakollisia kenttiä" });
     }
 
     const query = `
@@ -165,7 +141,17 @@ router.put('/:id', (req, res) => {
         WHERE id = ?
     `;
 
-    db.run(query, [rekisteritunnus, tankkauspva, tankkausmaara, tankkauskustannus, kilometrit, huoltoasemaketju, huoltoasema, muuta, id], function(err) {
+    db.run(query, [
+        rekisteritunnus, 
+        tankkauspva, 
+        tankkausmaara, 
+        tankkauskustannus, 
+        kilometrit || null, 
+        huoltoasemaketju || null, 
+        huoltoasema || null, 
+        muuta || null, 
+        id
+    ], function(err) {
         if (err) {
             console.error('Error executing update query:', err.stack);
             return res.status(500).json({ error: "Database update failed" });
@@ -174,6 +160,10 @@ router.put('/:id', (req, res) => {
             return res.status(404).json({ error: "Record not found" });
         }
         db.get("SELECT * FROM fuel WHERE id = ?", [id], (err, row) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ error: "Failed to retrieve updated record" });
+            }
             res.json(row);
         });
     });
@@ -197,3 +187,4 @@ router.get('/:id', (req, res) => {
 });
 
 module.exports = router;
+
