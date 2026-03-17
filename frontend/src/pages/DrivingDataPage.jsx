@@ -38,7 +38,7 @@ export default function DrivingDataPage() {
     });
     const [editOpen, setEditOpen] = useState(false);
     const [editDrivingData, setEditDrivingData] = useState(null);
-    const [drivingDataData, setDrivingDataData] = useState([]); // Fixed variable name
+    const [drivingDataData, setDrivingDataData] = useState([]); 
 
     const columns = [
         { field: 'rekisteritunnus', headerName: 'Rekisteritunnus', width: 90 },
@@ -82,7 +82,7 @@ export default function DrivingDataPage() {
             const [drivingData, carsData] = await Promise.all([fetchDrivingData(), fetchCars()]);
             setRows(drivingData);
             setCars(carsData);
-            setDrivingDataData(drivingData); // Set the driving data for export
+            setDrivingDataData(drivingData); 
         } catch (err) {
             console.error('Error loading driving data:', err);
             setError('Failed to load driving data');
@@ -114,7 +114,7 @@ export default function DrivingDataPage() {
         }
 
         setLoading(true);
-        setError(null); // Clear previous errors
+        setError(null); 
 
         try {
             await addDrivingData(newDrivingData);
@@ -170,7 +170,7 @@ export default function DrivingDataPage() {
         }
 
         setLoading(true);
-        setError(null); // Clear previous errors
+        setError(null); 
 
         try {
             await updateDrivingData(editDrivingData.id, editDrivingData);
@@ -196,12 +196,12 @@ export default function DrivingDataPage() {
 
     const handleCloseDialog = () => {
         setOpen(false);
-        setError(null); // Clear error when closing
+        setError(null); 
     };
 
     const handleCloseEditDialog = () => {
         setEditOpen(false);
-        setError(null); // Clear error when closing
+        setError(null); 
     };
 
     if (loading && rows.length === 0) return <div>Ladataan...</div>;

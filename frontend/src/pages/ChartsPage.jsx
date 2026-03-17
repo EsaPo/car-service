@@ -20,7 +20,7 @@ export default function ChartsPage() {
   const [fuelData, setFuelData] = useState([]);
   const [cars, setCars] = useState([]);
   const [selectedCar, setSelectedCar] = useState('');
-  const [selectedTimeframe, setSelectedTimeframe] = useState('all'); // New state
+  const [selectedTimeframe, setSelectedTimeframe] = useState('all'); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const chartRef = useRef(null);

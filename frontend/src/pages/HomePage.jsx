@@ -7,13 +7,3 @@ export default function HomePage() {
   )
 }
 
-/*
-export default function HomePage() {
-  return (
-    <div className="home">
-      <h2>Tervetuloa polttoaineen kulutuksen seurantasovellukseen </h2>
-      <p>Voit lisätä polttoaineen tankkaustiedot ja omistamasi autot yllä olevan valikkopalkin kautta.</p>
-    </div>
-  )
-}
-*/

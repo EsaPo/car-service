@@ -27,20 +27,3 @@ export default function Navbar() {
 }
 
 
-/*import { Link } from 'react-router-dom'
-
-export default function Navbar() {
-  return (
-    <nav className="navbar">
-      <h1>Polttoaineen kulutus</h1>
-      <div className="links">
-        <Link to="/">Etusivu</Link>
-        <Link to="/fuel">Tankkaukset</Link>
-        <Link to="/cars">Autot</Link>
-        <Link to="/charts">Kaaviot</Link>
-      </div>
-    </nav>
-  )
-}
-*/
-

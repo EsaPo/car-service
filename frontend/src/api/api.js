@@ -70,13 +70,6 @@ export const updateService = async (id, serviceData) => {
   }
 };
 
-/*
-export const updateService = async (id, serviceData) => {
-  const response = await apiClient.put(`/service/${id}`, serviceData);
-  return response.data;
-};
-*/
-
 export const deleteService = async (id) => {
   const response = await apiClient.delete(`/service/${id}`);
   return response.data;
@@ -98,7 +91,7 @@ export const updateDrivingData = async (rekisteritunnus, drivingData) => {
   return response.data;
 };
 
-export const deleteDrivingData = async (rekisteritunnus) => { // Changed to accept rekisteritunnus
+export const deleteDrivingData = async (rekisteritunnus) => { 
   const response = await apiClient.delete(`/drivingdata/${rekisteritunnus}`);
   return response.data;
 };

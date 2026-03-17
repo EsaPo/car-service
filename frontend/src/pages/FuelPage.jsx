@@ -120,7 +120,6 @@ export default function FuelPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!newFuel.rekisteritunnus || !newFuel.tankkauspva || !newFuel.tankkausmaara || !newFuel.tankkauskustannus) {
       setError('Rekisteritunnus, tankkauspäivä, tankkaausmäärä ja kustannus ovat pakollisia kenttiä');
       return;
@@ -176,7 +175,6 @@ export default function FuelPage() {
   const handleUpdate = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!editFuel.rekisteritunnus || !editFuel.tankkauspva || !editFuel.tankkausmaara || !editFuel.tankkauskustannus) {
       setError('Rekisteritunnus, tankkauspäivä, tankkaausmäärä ja kustannus ovat pakollisia kenttiä');
       return;
